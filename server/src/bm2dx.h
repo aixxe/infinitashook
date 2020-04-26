@@ -3,16 +3,16 @@
 /*
  * bm2dx.exe
  *
- * Size: 8677216 bytes (8473 KiB)
- * SHA256: C4C5B65D0F0A9824C70A23A5F1BD8B83B6A81B3D9B6BADFF52B41FEA62DD7285
+ * Size: 9065312 bytes (8852 KiB)
+ * SHA256: 68BBE6E187D92AB1DF407FB8773FFB19CBA05E844E21503BDB62C9A479D299B7
  */
 
 // Offsets
-constexpr std::uintptr_t game_state_addr = 0x2619B94;
-constexpr std::uintptr_t judgement_addr = 0x28967C4;
-constexpr std::uintptr_t pacemaker_addr = 0x112160;
-constexpr std::uintptr_t player_name_addr = 0x1092105;
-constexpr std::uintptr_t result_hook_addr = 0x116A58;
+constexpr std::uintptr_t game_state_addr = 0x267126C;
+constexpr std::uintptr_t judgement_addr = 0x28EE0DC;
+constexpr std::uintptr_t pacemaker_addr = 0x128DC0;
+constexpr std::uintptr_t player_name_addr = 0x10F036D;
+constexpr std::uintptr_t result_hook_addr = 0x12D6E8;
 
 // Constants
 constexpr auto PLAYER_P1 = 0;
