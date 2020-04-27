@@ -2,6 +2,8 @@
 #include <iostream>
 #include <windows.h>
 #include <MinHook.h>
+#include <zmq.hpp>
+#include <nlohmann/json.hpp>
 
 #include "bm2dx.h"
 #include "bm2dx_util.h"
@@ -15,47 +17,15 @@ void* get_pacemaker_data = nullptr; // A function for retrieving pacemaker data.
 void* result_hook_original_fn = nullptr;
 void* result_hook_return_addr = nullptr;
 
-// Print score data out to the console. Just a placeholder for now.
+zmq::context_t context;
+zmq::socket_t server;
+
 void scorehook_dump(StageResultDrawFrame* frame = nullptr) {
+    nlohmann::json message;
+
     auto chart = bm2dx::get_chart();
     auto judgement = bm2dx::get_judgement();
-
-    printf("Player name:        %s\n\n", player_name);
-
-    printf("Active play side:   %s\n", state->p1_active ? "P1" : "P2");
-    printf("Active play style:  %s\n\n", state->play_style == 0 ? "Single" : "Double");
-
-    printf("Current music:      %s - %s\n", state->music->artist, state->music->title);
-
-    printf("Chart note count:   %i\n", chart.notes);
-    printf("Chart rating:       Lv. %i\n", chart.rating);
-
-    printf("Chart BPM:          %i ~ %i\n\n", chart.bpm_min, chart.bpm_max);
-
-    printf("PGREAT:             %i\n", judgement.pgreat);
-    printf("GREAT:              %i\n", judgement.great);
-    printf("GOOD:               %i\n", judgement.good);
-    printf("BAD:                %i\n", judgement.bad);
-    printf("POOR:               %i\n\n", judgement.poor);
-
-    printf("COMBO BREAK:        %i\n\n", judgement.combo_break);
-
-    printf("FAST:               %i\n", judgement.fast);
-    printf("SLOW:               %i\n\n", judgement.slow);
-
     auto frame_data = state->p1_active ? frame->p1: frame->p2;
-
-    printf("Best clear type:    %s\n", CLEAR_TYPE[frame_data.best_clear_type]);
-    printf("Current clear type: %s\n\n", CLEAR_TYPE[frame_data.current_clear_type]);
-
-    printf("Best DJ level:      %s\n", DJ_LEVEL[frame_data.best_dj_level]);
-    printf("Current DJ level:   %s\n\n", DJ_LEVEL[frame_data.current_dj_level]);
-
-    printf("Best EX score:      %i\n", frame_data.best_ex_score);
-    printf("Current EX score:   %i\n\n", frame_data.current_ex_score);
-
-    printf("Best miss count:    %i\n", frame_data.best_miss_count);
-    printf("Current miss count: %i\n\n", frame_data.current_miss_count);
 
     pacemaker_t pacemaker_data;
 
@@ -64,8 +34,46 @@ void scorehook_dump(StageResultDrawFrame* frame = nullptr) {
         call[get_pacemaker_data];
     }
 
-    printf("Pacemaker target:   %i [%s]\n", pacemaker_data.score, pacemaker_data.name);
-    printf("Pacemaker type:     %s\n", PACEMAKER_TYPE[pacemaker_data.type]);
+    message["player"]["name"] = player_name;
+    
+    message["music"]["id"] = state->music->entry_id;
+    message["music"]["title"] = state->music->title;
+    message["music"]["artist"] = state->music->artist;
+
+    message["chart"]["rating"] = chart.rating;
+    message["chart"]["play_style"] = state->play_style;
+    message["chart"]["difficulty"] = state->p1_active ? state->p1_difficulty: state->p2_difficulty;
+
+    message["judgement"]["pgreat"] = judgement.pgreat;
+    message["judgement"]["great"] = judgement.great;
+    message["judgement"]["good"] = judgement.good;
+    message["judgement"]["bad"] = judgement.bad;
+    message["judgement"]["poor"] = judgement.poor;
+
+    message["judgement"]["combo_break"] = judgement.combo_break;
+
+    message["judgement"]["fast"] = judgement.fast;
+    message["judgement"]["slow"] = judgement.slow;
+
+    message["clear"]["best"] = CLEAR_TYPE[frame_data.best_clear_type];
+    message["clear"]["current"] = CLEAR_TYPE[frame_data.current_clear_type];
+
+    message["dj_level"]["best"] = DJ_LEVEL[frame_data.best_dj_level];
+    message["dj_level"]["current"] = DJ_LEVEL[frame_data.current_dj_level];
+
+    message["ex_score"]["best"] = frame_data.best_ex_score;
+    message["ex_score"]["current"] = frame_data.current_ex_score;
+
+    message["miss_count"]["best"] = frame_data.best_miss_count;
+    message["miss_count"]["current"] = frame_data.current_miss_count;
+
+    message["pacemaker"]["name"] = pacemaker_data.name;
+    message["pacemaker"]["score"] = pacemaker_data.score;
+    message["pacemaker"]["type"] = PACEMAKER_TYPE[pacemaker_data.type];
+
+    const auto str = message.dump();
+
+    server.send(zmq::message_t { str.c_str(), str.size() }, zmq::send_flags::none);
 }
 
 __declspec(naked) void scorehook_intercept() {
@@ -97,6 +105,10 @@ DWORD WINAPI scorehook_init(LPVOID dll_instance) {
     player_name = (const char*)(bm2dx_addr + player_name_addr);
     get_pacemaker_data = (void*)(bm2dx_addr + pacemaker_addr);
 
+    // Initialise and bind the server.
+    server = zmq::socket_t(context, zmq::socket_type::pub);
+    server.bind("tcp://0.0.0.0:5730");
+
     MH_Initialize();
 
     const std::uintptr_t hook_address = (bm2dx_addr + result_hook_addr);
@@ -116,6 +128,10 @@ DWORD WINAPI scorehook_init(LPVOID dll_instance) {
 
     // Print some text, just so we know that something is happening.
     printf("Detaching from process..\n");
+
+    // Need to close these manually for detaching to work properly.
+    server.close();
+    context.close();
 
     // Free resources and detach from process.
     FreeConsole();
