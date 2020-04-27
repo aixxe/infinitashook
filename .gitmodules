@@ -1,0 +1,3 @@
+[submodule "server/external/MinHook"]
+	path = server/external/MinHook
+	url = https://github.com/aixxe/minhook.git
