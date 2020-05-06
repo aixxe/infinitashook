@@ -1,0 +1,17 @@
+image: aixxe/mingw64:latest
+
+stages:
+  - build
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+release:
+  stage: build
+  when: manual
+  script:
+    - i686-w64-mingw32-cmake -B server/cmake-build-minsizerel/ -Hserver/ -G Ninja -DCMAKE_BUILD_TYPE=MinSizeRel
+    - ninja -C server/cmake-build-minsizerel/
+  artifacts:
+    paths:
+      - ./server/cmake-build-minsizerel/infinitashook.dll
