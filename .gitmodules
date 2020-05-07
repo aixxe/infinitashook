@@ -10,3 +10,7 @@
 [submodule "server/external/json"]
 	path = server/external/json
 	url = https://github.com/nlohmann/json.git
+[submodule "client/external/iidx-scorecard"]
+	path = client/external/iidx-scorecard
+	url = https://github.com/aixxe/iidx-scorecard.git
+	branch = infinitashook

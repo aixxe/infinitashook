@@ -1,0 +1,4 @@
+/client/.idea
+/client/node_modules
+/server/.idea
+/server/cmake-build*
